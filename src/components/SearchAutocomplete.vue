@@ -1,10 +1,16 @@
 <template>
   <div class="autocomplete">
-    <input v-model="search" @input="onChange" type="text" />
+    <textarea
+      ref="input"
+      v-model="search"
+      @keydown="keyDown"
+      @keyup="keyUp"
+      type="text"
+    />
     <ul v-show="isOpen" class="autocomplete-results">
       <li
-        v-for="(result, i) in results"
-        :key="i"
+        v-for="(result, index) in results"
+        :key="index"
         @click="setResult(result)"
         class="autocomplete-result"
       >
@@ -27,34 +33,79 @@ export default {
   data() {
     return {
       search: "",
-      results: [],
+      results: (Array[String] = []),
       isOpen: false,
+      controlPressed: false,
+      cursorPosition: 0,
     };
   },
   methods: {
-    setResult(result) {
-      this.search = result;
-      this.isOpen = false;
-    },
-    filterResults() {
-      if (this.search.indexOf(".") < -1) {
+    triggerAutocomplete(e) {
+      this.cursorPosition = e.target.selectionStart;
+      var portion = this.search.substring(0, this.cursorPosition).toLowerCase();
+      if (portion.trim() === "") return;
+      var words = portion.split(/\s+/);
+      if (words.length == 0) return;
+      if (
+        !words[words.length - 1].startsWith("{{") &&
+        words[words.length - 2] !== "{{"
+      )
         return;
+      var currentWord = words.slice(-1)[0].trim();
+      if (currentWord.startsWith("{{")) {
+        currentWord = currentWord.substring(2);
       }
-      var elems = this.search.toLowerCase().split(".");
-      var key = elems[0];
-      var field = elems[1];
+      var currentSplit = currentWord.split(".");
+      var key = currentSplit[0];
+      var field = currentSplit[1];
       if (key in this.items) {
         var values = this.items[key].filter(
           (item) => item.toLowerCase().indexOf(field) > -1
         );
-        this.results = values.array.forEach((item) => key + "." + item);
+        if (values !== undefined) {
+          this.results = values.map((item) => key + "." + item);
+        }
       }
     },
-    onChange() {
-      this.filterResults();
-      if (this.results.length > 0) {
-        this.isOpen = true;
+    keyDown: function (event) {
+      if (event.keyCode == 17) {
+        this.controlPressed = true;
       }
+      if (event.keyCode == 32 && this.controlPressed) {
+        this.triggerAutocomplete(event);
+        if (this.results.length > 0) {
+          this.isOpen = true;
+        }
+      }
+    },
+    keyUp: function (event) {
+      if (event.keyCode == 17) {
+        this.controlPressed = false;
+      }
+    },
+    setResult(result) {
+      var portion = this.search.substring(0, this.cursorPosition);
+      var words = portion.split(/\s+/);
+      var currentWord = words.slice(-1)[0];
+      var hasSpaceInFront = true;
+      if (currentWord.indexOf("{{") > -1) {
+        currentWord = currentWord.substring(currentWord.indexOf("{{") + 2);
+        hasSpaceInFront = false;
+      }
+      var firstPart = this.search.substring(
+        0,
+        this.cursorPosition - currentWord.length
+      );
+      var lastPart = this.search.substring(this.cursorPosition);
+      if (lastPart.trim().startsWith("}}")) {
+        lastPart = lastPart.substring(lastPart.indexOf("}}") + 2);
+      }
+      this.search = firstPart + result;
+      if (hasSpaceInFront) {
+        this.search = this.search + " ";
+      }
+      this.search = this.search + "}}" + lastPart;
+      this.isOpen = false;
     },
   },
 };
@@ -84,6 +135,10 @@ export default {
   text-align: left;
   padding: 4px 2px;
   cursor: pointer;
+}
+
+.autocomplete-result.is-selected {
+  border-color: #000;
 }
 
 .autocomplete-result:hover {
