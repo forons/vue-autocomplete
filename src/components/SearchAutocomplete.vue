@@ -55,15 +55,26 @@ export default {
       if (currentWord.startsWith("{{")) {
         currentWord = currentWord.substring(2);
       }
-      var currentSplit = currentWord.split(".");
-      var key = currentSplit[0];
-      var field = currentSplit[1];
-      if (key in this.items) {
-        var values = this.items[key].filter(
-          (item) => item.toLowerCase().indexOf(field) > -1
+      if (currentWord.includes(".")) {
+        var currentSplit = currentWord.split(".");
+        var key = currentSplit[0];
+        var field = currentSplit[1];
+        if (key in this.items) {
+          var values = this.items[key].filter(
+            (item) => item.toLowerCase().indexOf(field) > -1
+          );
+          if (values !== undefined) {
+            this.results = values.map((item) => key + "." + item);
+          }
+        }
+      } else {
+        var keys = this.items.filter((item) =>
+          item.toLowerCase().startsWith(currentWord.toLowerCase().trim())
         );
         if (values !== undefined) {
-          this.results = values.map((item) => key + "." + item);
+          this.results = keys.flatMap((item) =>
+            this.items[key].map((elem) => item + "." + elem)
+          );
         }
       }
     },
